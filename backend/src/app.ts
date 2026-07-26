@@ -9,7 +9,7 @@ app.use(express.json());
 app.get('/health', (_req, res) => {
     res.json({
         success: true,
-        message: 'AI Invoice assistant is running'
+        message: 'AI Invoice Assistant API is running'
     })
 });
 
