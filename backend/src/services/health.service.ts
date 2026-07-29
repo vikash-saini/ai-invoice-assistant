@@ -1,9 +1,14 @@
+import { ApiResponse } from "../types/api-response";
+
 export class HealthService {
-    getHealthStatus () {
+    getHealthStatus(): ApiResponse<{ timestamp: string }> {
         return {
             success: true,
             message: 'Ai Invoice assistant API is running',
-            timestamp: new Date().toISOString() 
+            data: {
+                timestamp: new Date().toISOString()
+            }
+             
         }
     }
 }
