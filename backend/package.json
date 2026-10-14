@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "ts-node-dev --respawn src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -14,15 +15,21 @@
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "multer": "^2.3.0",
+    "pdf-parse": "^2.4.5"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
     "@types/node": "^26.1.1",
+    "@types/supertest": "^7.2.1",
     "eslint": "^10.7.0",
     "prettier": "^3.9.5",
+    "supertest": "^7.3.1",
     "ts-node-dev": "^2.0.0",
-    "typescript": "5.8"
+    "typescript": "5.8",
+    "vitest": "^5.0.4"
   }
 }
