@@ -22,4 +22,4 @@ export const uploadInvoice = multer({
 
     cb(null, true);
   },
-}).single("invoice");
+});
