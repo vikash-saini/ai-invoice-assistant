@@ -1,4 +1,5 @@
-import type { Invoice } from "../services/api.service";
+import type { ChatMessage, Invoice } from "../services/api.service";
+import { InvoiceChat } from "./InvoiceChat";
 import { formatFileSize } from "../utils/format";
 
 interface InvoiceDetailsProps {
@@ -7,7 +8,14 @@ interface InvoiceDetailsProps {
   error: string | null;
   summaryLoading: boolean;
   summaryError: string | null;
+  chatMessages: ChatMessage[];
+  chatLoading: boolean;
+  chatSending: boolean;
+  chatError: string | null;
+  chatHistoryError: string | null;
   onGenerateSummary: () => void;
+  onSendChatMessage: (message: string) => Promise<boolean>;
+  onRetryChat: () => void;
   onRetry: () => void;
 }
 
@@ -57,7 +65,7 @@ function InvoiceSummary({ invoice, loading, error, onGenerate }: { invoice: Invo
   );
 }
 
-export function InvoiceDetails({ invoice, loading, error, summaryLoading, summaryError, onGenerateSummary, onRetry }: InvoiceDetailsProps) {
+export function InvoiceDetails({ invoice, loading, error, summaryLoading, summaryError, chatMessages, chatLoading, chatSending, chatError, chatHistoryError, onGenerateSummary, onSendChatMessage, onRetryChat, onRetry }: InvoiceDetailsProps) {
   if (!invoice && !loading && !error) {
     return <section className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center shadow-sm"><p className="text-sm font-semibold text-slate-800">Select an invoice to view details</p><p className="mt-1 text-sm text-slate-500">The extracted text and AI summary will appear here.</p></section>;
   }
@@ -83,6 +91,17 @@ export function InvoiceDetails({ invoice, loading, error, summaryLoading, summar
       </dl>
 
       <InvoiceSummary invoice={invoice} loading={summaryLoading} error={summaryError} onGenerate={onGenerateSummary} />
+
+      <InvoiceChat
+        key={invoice.id}
+        messages={chatMessages}
+        loadingHistory={chatLoading}
+        sending={chatSending}
+        error={chatError}
+        historyError={chatHistoryError}
+        onSend={onSendChatMessage}
+        onRetryHistory={onRetryChat}
+      />
 
       <section>
         <div className="mb-2 flex items-center justify-between gap-3">

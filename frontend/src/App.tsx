@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { InvoiceDetails } from "./components/InvoiceDetails";
 import { InvoiceList } from "./components/InvoiceList";
 import { InvoiceUpload } from "./components/InvoiceUpload";
-import { apiService, type Invoice, type InvoiceListItem } from "./services/api.service";
+import { apiService, type ChatMessage, type Invoice, type InvoiceListItem } from "./services/api.service";
 
 function App() {
   const [invoices, setInvoices] = useState<InvoiceListItem[]>([]);
@@ -17,8 +17,15 @@ function App() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatSending, setChatSending] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [chatHistoryError, setChatHistoryError] = useState<string | null>(null);
   const detailRequest = useRef(0);
   const uploadLock = useRef(false);
+  const chatRequest = useRef(0);
+  const chatSendLock = useRef(false);
 
   const loadInvoices = useCallback(async () => {
     setListLoading(true);
@@ -48,6 +55,22 @@ function App() {
     return () => { active = false; };
   }, []);
 
+  async function loadChatHistory(invoiceId: string) {
+    const requestId = ++chatRequest.current;
+    setChatLoading(true);
+    setChatHistoryError(null);
+    try {
+      const result = await apiService.getChatHistory(invoiceId);
+      if (chatRequest.current === requestId) setChatMessages(result.messages);
+    } catch (error) {
+      if (chatRequest.current === requestId) {
+        setChatHistoryError(error instanceof Error ? error.message : "Unable to load chat history.");
+      }
+    } finally {
+      if (chatRequest.current === requestId) setChatLoading(false);
+    }
+  }
+
   async function openInvoice(item: InvoiceListItem) {
     const requestId = ++detailRequest.current;
     setSelectedId(item.id);
@@ -55,6 +78,9 @@ function App() {
     setDetailLoading(true);
     setDetailError(null);
     setSummaryError(null);
+    setChatError(null);
+    setChatMessages([]);
+    void loadChatHistory(item.id);
     try {
       const invoice = await apiService.getInvoice(item.id);
       if (detailRequest.current === requestId) setSelectedInvoice(invoice);
@@ -78,6 +104,11 @@ function App() {
       setSelectedInvoice(invoice);
       setDetailError(null);
       setSummaryError(null);
+      chatRequest.current += 1;
+      setChatMessages([]);
+      setChatLoading(false);
+      setChatError(null);
+      setChatHistoryError(null);
       detailRequest.current += 1;
       await loadInvoices();
       return true;
@@ -101,6 +132,34 @@ function App() {
       setSummaryError(error instanceof Error ? error.message : "Unable to generate the summary.");
     } finally {
       setSummaryLoading(false);
+    }
+  }
+
+  async function sendChatMessage(message: string): Promise<boolean> {
+    if (!selectedInvoice || chatLoading || chatSendLock.current) return false;
+    const invoiceId = selectedInvoice.id;
+    const requestId = chatRequest.current;
+    chatSendLock.current = true;
+    setChatSending(true);
+    setChatError(null);
+    try {
+      const exchange = await apiService.sendChatMessage(invoiceId, message);
+      if (chatRequest.current === requestId) {
+        setChatMessages((current) => [
+          ...current,
+          exchange.userMessage,
+          exchange.assistantMessage,
+        ]);
+      }
+      return true;
+    } catch (error) {
+      if (chatRequest.current === requestId) {
+        setChatError(error instanceof Error ? error.message : "Unable to send your question.");
+      }
+      return false;
+    } finally {
+      chatSendLock.current = false;
+      setChatSending(false);
     }
   }
 
@@ -142,7 +201,7 @@ function App() {
 
         <div className="mt-6"><InvoiceList invoices={invoices} loading={listLoading} error={listError} selectedId={selectedId} onSelect={(invoice) => void openInvoice(invoice)} onRetry={() => void loadInvoices()} /></div>
 
-        {(selectedId || detailLoading || detailError) && <div className="mt-6"><InvoiceDetails invoice={selectedInvoice} loading={detailLoading} error={detailError} summaryLoading={summaryLoading} summaryError={summaryError} onGenerateSummary={() => void generateSummary()} onRetry={() => { const item = invoices.find((invoice) => invoice.id === selectedId); if (item) void openInvoice(item); }} /></div>}
+        {(selectedId || detailLoading || detailError) && <div className="mt-6"><InvoiceDetails invoice={selectedInvoice} loading={detailLoading} error={detailError} summaryLoading={summaryLoading} summaryError={summaryError} chatMessages={chatMessages} chatLoading={chatLoading} chatSending={chatSending} chatError={chatError} chatHistoryError={chatHistoryError} onGenerateSummary={() => void generateSummary()} onSendChatMessage={sendChatMessage} onRetryChat={() => { if (selectedId) void loadChatHistory(selectedId); }} onRetry={() => { const item = invoices.find((invoice) => invoice.id === selectedId); if (item) void openInvoice(item); }} /></div>}
       </main>
     </div>
   );

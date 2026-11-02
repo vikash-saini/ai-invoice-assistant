@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { env } from "../config/env";
+import { createOpenAIClient } from "../clients/openai.client";
 import { AppError } from "../utils/app-error";
 import { InvoiceSummary } from "../types/invoice-summary";
 import { validateInvoiceSummary } from "./invoice-summary.validation";
@@ -61,11 +62,7 @@ export class InvoiceSummaryService {
       );
     }
 
-    const client = new OpenAI({
-      apiKey: this.apiKey,
-      maxRetries: 2,
-      timeout: 30_000,
-    });
+    const client = createOpenAIClient(this.apiKey);
 
     let output: string;
     try {

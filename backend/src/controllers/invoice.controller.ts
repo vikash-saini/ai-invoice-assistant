@@ -2,11 +2,13 @@
 import { Request, Response } from "express";
 import { InvoiceService } from "../services/invoice.service";
 import { InvoiceSummaryService } from "../services/invoice-summary.service";
+import { InvoiceChatService } from "../services/invoice-chat.service";
 import { invoiceRepository } from "../repositories/invoice.repository";
 
 class InvoiceController {
   constructor(
     private readonly invoiceService: InvoiceService,
+    private readonly invoiceChatService: InvoiceChatService,
     private readonly invoiceSummaryService: InvoiceSummaryService =
       new InvoiceSummaryService()
   ) {}
@@ -109,6 +111,40 @@ class InvoiceController {
     res.status(200).json({
       success: true,
       data: { invoiceId: invoice.id, summary },
+    });
+  };
+
+  getChatHistory = (req: Request, res: Response): void => {
+    const id = req.params.id;
+    if (typeof id !== "string" || !id.trim()) {
+      res.status(400).json({ success: false, message: "Invalid invoice ID" });
+      return;
+    }
+
+    const messages = this.invoiceChatService.getHistory(id);
+    res.status(200).json({
+      success: true,
+      data: { invoiceId: id, messages },
+    });
+  };
+
+  sendChatMessage = async (req: Request, res: Response): Promise<void> => {
+    const id = req.params.id;
+    if (typeof id !== "string" || !id.trim()) {
+      res.status(400).json({ success: false, message: "Invalid invoice ID" });
+      return;
+    }
+
+    const body = req.body;
+    const message =
+      typeof body === "object" && body !== null && !Array.isArray(body)
+        ? (body as { message?: unknown }).message
+        : undefined;
+    const exchange = await this.invoiceChatService.sendMessage(id, message);
+
+    res.status(201).json({
+      success: true,
+      data: { invoiceId: id, ...exchange },
     });
   };
 }

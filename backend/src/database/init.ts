@@ -1,6 +1,23 @@
 
 import db from "./database";
 
+export function initializeChatMessagesTable(database: typeof db = db): void {
+    database.exec(`
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id TEXT PRIMARY KEY,
+            invoice_id TEXT NOT NULL,
+            role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (
+                strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            ),
+            FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_chat_messages_invoice_created
+            ON chat_messages (invoice_id, created_at);
+    `);
+}
+
 export function initializeDatabase(): void {
     db.exec(`
         CREATE TABLE IF NOT EXISTS invoices (
@@ -22,6 +39,8 @@ export function initializeDatabase(): void {
     if (!columns.some((column) => column.name === "summary_json")) {
         db.exec("ALTER TABLE invoices ADD COLUMN summary_json TEXT");
     }
+
+    initializeChatMessagesTable(db);
 
     console.log(
     "SQLite tables:",

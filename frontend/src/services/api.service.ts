@@ -22,6 +22,14 @@ export interface Invoice {
   summary: InvoiceSummary | null;
 }
 
+export interface ChatMessage {
+  id: string;
+  invoiceId: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+}
+
 export type InvoiceListItem = Omit<Invoice, "extractedText" | "summary">;
 
 const API_BASE_URL = (
@@ -68,5 +76,21 @@ export const apiService = {
 
   generateSummary(id: string): Promise<{ invoiceId: string; summary: InvoiceSummary }> {
     return request(`/invoices/${encodeURIComponent(id)}/summary`, { method: "POST" });
+  },
+
+  getChatHistory(id: string): Promise<{ invoiceId: string; messages: ChatMessage[] }> {
+    return request(`/invoices/${encodeURIComponent(id)}/chat`);
+  },
+
+  sendChatMessage(id: string, message: string): Promise<{
+    invoiceId: string;
+    userMessage: ChatMessage;
+    assistantMessage: ChatMessage;
+  }> {
+    return request(`/invoices/${encodeURIComponent(id)}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
   },
 };
