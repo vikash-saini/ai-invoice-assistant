@@ -28,6 +28,11 @@ interface InvoiceRow {
     summary_json: string | null;
 }
 
+export interface InvoiceDashboardRow {
+    status: InvoiceRecord["status"];
+    summary_json: string | null;
+}
+
 function mapInvoice(row: InvoiceRow): InvoiceRecord {
     return {
         id: row.id,
@@ -80,8 +85,13 @@ const findAllInvoices = db.prepare(`
 
 const saveInvoiceSummary = db.prepare(`
     UPDATE invoices
-    SET summary_json = ?
+    SET summary_json = ?, status = 'processed'
     WHERE id = ?
+`);
+
+const findInvoicesForDashboard = db.prepare(`
+    SELECT status, summary_json
+    FROM invoices
 `);
 
 export const invoiceRepository = {
@@ -111,5 +121,9 @@ export const invoiceRepository = {
 
     saveSummary(id: string, summary: InvoiceSummary): void {
         saveInvoiceSummary.run(JSON.stringify(summary), id);
+    },
+
+    findDashboardRows(): InvoiceDashboardRow[] {
+        return findInvoicesForDashboard.all() as InvoiceDashboardRow[];
     },
 };

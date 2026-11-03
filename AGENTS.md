@@ -28,6 +28,7 @@ The backend foundation includes:
 - SQLite database initialization
 - Invoice repository and persistence
 - Invoice API endpoints for upload, listing, and retrieval
+- Structured AI invoice summaries, invoice chat, and an invoice intelligence dashboard
 
 Before changing these areas, inspect the existing implementation and preserve working functionality.
 

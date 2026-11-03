@@ -94,3 +94,52 @@ describe("invoice chat API", () => {
     ]);
   });
 });
+
+describe("invoice summary persistence and dashboard API", () => {
+  const summary = {
+    vendorName: "Acme Supplies",
+    invoiceNumber: "INV-CHAT-1",
+    invoiceDate: "2026-01-15",
+    dueDate: null,
+    currency: "USD",
+    subtotal: "90.00",
+    taxAmount: "10.00",
+    totalAmount: "100.00",
+    paymentTerms: null,
+    summary: "Acme Supplies invoiced 100.00 USD.",
+  };
+
+  it("keeps invoice status uploaded when summary generation fails", async () => {
+    await request(app)
+      .post(`/api/v1/invoices/${invoiceId}/summary`)
+      .expect(503);
+
+    expect(invoices.findById(invoiceId)?.status).toBe("uploaded");
+    expect(invoices.findById(invoiceId)?.summary).toBeNull();
+  });
+
+  it("marks the invoice processed with the saved summary and returns dashboard statistics", async () => {
+    invoices.saveSummary(invoiceId, summary);
+
+    const invoice = invoices.findById(invoiceId);
+    expect(invoice?.status).toBe("processed");
+    expect(invoice?.summary).toEqual(summary);
+
+    const response = await request(app)
+      .get("/api/v1/invoices/dashboard")
+      .expect(200);
+
+    expect(response.body.data).toMatchObject({
+      totalInvoiceCount: 1,
+      processedInvoiceCount: 1,
+      successfullySummarizedInvoiceCount: 1,
+      invoiceValueTotals: [{ currency: "USD", amount: "100.00" }],
+      monthlyInvoiceValueTrends: [{ month: "2026-01", currency: "USD", amount: "100.00" }],
+      topVendors: [{ vendorName: "Acme Supplies", invoiceCount: 1 }],
+      missingVendorInvoiceCount: 0,
+      invoicesWithMissingOrInvalidFinancialFieldsCount: 0,
+    });
+    expect(response.body.data).not.toHaveProperty("extractedText");
+    expect(response.body.data).not.toHaveProperty("summary_json");
+  });
+});

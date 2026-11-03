@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { InvoiceDetails } from "./components/InvoiceDetails";
+import { InvoiceDashboard } from "./components/InvoiceDashboard";
 import { InvoiceList } from "./components/InvoiceList";
 import { InvoiceUpload } from "./components/InvoiceUpload";
-import { apiService, type ChatMessage, type Invoice, type InvoiceListItem } from "./services/api.service";
+import { apiService, type ChatMessage, type Invoice, type InvoiceDashboardStats, type InvoiceListItem } from "./services/api.service";
 
 function App() {
   const [invoices, setInvoices] = useState<InvoiceListItem[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
+  const [dashboard, setDashboard] = useState<InvoiceDashboardStats | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -39,6 +43,18 @@ function App() {
     }
   }, []);
 
+  const loadDashboard = useCallback(async () => {
+    setDashboardLoading(true);
+    setDashboardError(null);
+    try {
+      setDashboard(await apiService.getDashboard());
+    } catch (error) {
+      setDashboardError(error instanceof Error ? error.message : "Unable to load dashboard statistics.");
+    } finally {
+      setDashboardLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
     async function loadInitialInvoices() {
@@ -52,6 +68,22 @@ function App() {
       }
     }
     void loadInitialInvoices();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    async function loadInitialDashboard() {
+      try {
+        const result = await apiService.getDashboard();
+        if (active) setDashboard(result);
+      } catch (error) {
+        if (active) setDashboardError(error instanceof Error ? error.message : "Unable to load dashboard statistics.");
+      } finally {
+        if (active) setDashboardLoading(false);
+      }
+    }
+    void loadInitialDashboard();
     return () => { active = false; };
   }, []);
 
@@ -110,7 +142,7 @@ function App() {
       setChatError(null);
       setChatHistoryError(null);
       detailRequest.current += 1;
-      await loadInvoices();
+      await Promise.all([loadInvoices(), loadDashboard()]);
       return true;
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Invoice upload failed. Please try again.");
@@ -128,6 +160,7 @@ function App() {
     try {
       const result = await apiService.generateSummary(selectedInvoice.id);
       setSelectedInvoice((current) => current?.id === result.invoiceId ? { ...current, summary: result.summary } : current);
+      await Promise.all([loadInvoices(), loadDashboard()]);
     } catch (error) {
       setSummaryError(error instanceof Error ? error.message : "Unable to generate the summary.");
     } finally {
@@ -163,8 +196,6 @@ function App() {
     }
   }
 
-  const processedCount = invoices.filter((invoice) => invoice.status === "processed").length;
-
   return (
     <div className="min-h-screen bg-[#f5f7fb]">
       <header className="border-b border-slate-200 bg-white">
@@ -183,10 +214,12 @@ function App() {
         <div className="mb-7 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div><p className="text-sm font-semibold text-indigo-600">INVOICE MANAGEMENT</p><h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Your invoices, organized.</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">Upload a PDF to extract its contents and get an AI-generated summary.</p></div>
           <div className="flex gap-3">
-            <div className="min-w-28 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"><p className="text-xs font-medium text-slate-500">Total invoices</p><p className="mt-1 text-xl font-bold text-slate-900">{listLoading ? "—" : invoices.length}</p></div>
-            <div className="min-w-28 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"><p className="text-xs font-medium text-slate-500">Processed</p><p className="mt-1 text-xl font-bold text-emerald-700">{listLoading ? "—" : processedCount}</p></div>
+            <div className="min-w-28 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"><p className="text-xs font-medium text-slate-500">Total invoices</p><p className="mt-1 text-xl font-bold text-slate-900">{dashboardLoading ? "..." : dashboard?.totalInvoiceCount ?? 0}</p></div>
+            <div className="min-w-28 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"><p className="text-xs font-medium text-slate-500">Processed</p><p className="mt-1 text-xl font-bold text-emerald-700">{dashboardLoading ? "..." : dashboard?.processedInvoiceCount ?? 0}</p></div>
           </div>
         </div>
+
+        <div className="mb-6"><InvoiceDashboard stats={dashboard} loading={dashboardLoading} error={dashboardError} onRetry={() => void loadDashboard()} /></div>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
           <InvoiceUpload onUpload={uploadInvoice} uploading={uploading} />

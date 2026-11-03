@@ -30,6 +30,34 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export interface CurrencyAmount {
+  currency: string;
+  amount: string;
+}
+
+export interface MonthlyInvoiceValue {
+  month: string;
+  currency: string;
+  amount: string;
+}
+
+export interface VendorInvoiceStats {
+  vendorName: string;
+  invoiceCount: number;
+  invoiceValueTotals: CurrencyAmount[];
+}
+
+export interface InvoiceDashboardStats {
+  totalInvoiceCount: number;
+  processedInvoiceCount: number;
+  successfullySummarizedInvoiceCount: number;
+  invoiceValueTotals: CurrencyAmount[];
+  monthlyInvoiceValueTrends: MonthlyInvoiceValue[];
+  topVendors: VendorInvoiceStats[];
+  missingVendorInvoiceCount: number;
+  invoicesWithMissingOrInvalidFinancialFieldsCount: number;
+}
+
 export type InvoiceListItem = Omit<Invoice, "extractedText" | "summary">;
 
 const API_BASE_URL = (
@@ -62,6 +90,10 @@ export const apiService = {
 
   getInvoices(): Promise<InvoiceListItem[]> {
     return request<InvoiceListItem[]>("/invoices");
+  },
+
+  getDashboard(): Promise<InvoiceDashboardStats> {
+    return request<InvoiceDashboardStats>("/invoices/dashboard");
   },
 
   getInvoice(id: string): Promise<Invoice> {

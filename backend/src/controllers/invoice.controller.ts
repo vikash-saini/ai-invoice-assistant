@@ -3,12 +3,14 @@ import { Request, Response } from "express";
 import { InvoiceService } from "../services/invoice.service";
 import { InvoiceSummaryService } from "../services/invoice-summary.service";
 import { InvoiceChatService } from "../services/invoice-chat.service";
+import { InvoiceDashboardService } from "../services/invoice-dashboard.service";
 import { invoiceRepository } from "../repositories/invoice.repository";
 
 class InvoiceController {
   constructor(
     private readonly invoiceService: InvoiceService,
     private readonly invoiceChatService: InvoiceChatService,
+    private readonly invoiceDashboardService: InvoiceDashboardService,
     private readonly invoiceSummaryService: InvoiceSummaryService =
       new InvoiceSummaryService()
   ) {}
@@ -45,6 +47,13 @@ class InvoiceController {
     res.status(200).json({
       success: true,
       data,
+    });
+  };
+
+  getDashboard = (_req: Request, res: Response): void => {
+    res.status(200).json({
+      success: true,
+      data: this.invoiceDashboardService.getDashboard(),
     });
   };
 

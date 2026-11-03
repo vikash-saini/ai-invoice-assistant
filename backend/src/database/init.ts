@@ -18,8 +18,8 @@ export function initializeChatMessagesTable(database: typeof db = db): void {
     `);
 }
 
-export function initializeDatabase(): void {
-    db.exec(`
+export function initializeDatabase(database: typeof db = db): void {
+    database.exec(`
         CREATE TABLE IF NOT EXISTS invoices (
             id TEXT PRIMARY KEY,
             file_name TEXT NOT NULL,
@@ -35,16 +35,23 @@ export function initializeDatabase(): void {
         );
     `);
 
-    const columns = db.pragma("table_info(invoices)") as Array<{ name: string }>;
+    const columns = database.pragma("table_info(invoices)") as Array<{ name: string }>;
     if (!columns.some((column) => column.name === "summary_json")) {
-        db.exec("ALTER TABLE invoices ADD COLUMN summary_json TEXT");
+        database.exec("ALTER TABLE invoices ADD COLUMN summary_json TEXT");
     }
 
-    initializeChatMessagesTable(db);
+    initializeChatMessagesTable(database);
+
+    // Older versions saved validated summaries without updating invoice status.
+    database.exec(`
+        UPDATE invoices
+        SET status = 'processed'
+        WHERE status = 'uploaded' AND summary_json IS NOT NULL
+    `);
 
     console.log(
     "SQLite tables:",
-    db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all()
+    database.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all()
     );
     console.log("SQLite database initialized successfully");
 }
