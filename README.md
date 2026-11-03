@@ -8,6 +8,7 @@ A React and TypeScript application for uploading invoices, reviewing extracted i
 - Store invoice metadata, extracted text, and structured summaries in SQLite.
 - Browse invoice records, inspect extracted text, and view or generate a saved AI summary.
 - Ask questions about an invoice and review its persisted chat history.
+- Ask questions across saved invoices in separate, persistent multi-invoice conversations.
 - View dashboard counts, currency-separated invoice totals, monthly trends, top vendors, and invoices with missing or invalid financial fields.
 
 ## Architecture
@@ -16,6 +17,7 @@ A React and TypeScript application for uploading invoices, reviewing extracted i
 - `backend/` contains the Express API, PDF processing, OpenAI integration, SQLite initialization, and persistence.
 - Routes connect HTTP requests to controllers; services handle summary, chat, and dashboard logic; repositories own SQL operations.
 - Dashboard statistics are calculated from invoice status and the saved `invoices.summary_json`; loading the dashboard does not call the AI service.
+- Multi-invoice chat calculates supported financial aggregates in the backend, filters explicit currency-total questions to that currency without conversion, and uses the Responses API only for natural-language reasoning over bounded structured invoice context.
 
 ## Run locally
 
@@ -41,12 +43,18 @@ All invoice routes are under `/api/v1/invoices`. Successful responses use `{ "su
 | `POST` | `/api/v1/invoices/:id/summary` | Return the cached summary or generate, validate, and persist one. |
 | `GET` | `/api/v1/invoices/:id/chat` | Retrieve saved chat history. |
 | `POST` | `/api/v1/invoices/:id/chat` | Send a JSON `{ "message": "..." }` question about that invoice. |
+| `POST` | `/api/v1/invoice-conversations` | Create a multi-invoice conversation and process its first `{ "message": "..." }`. |
+| `GET` | `/api/v1/invoice-conversations` | List up to 100 conversations with timestamps, a title from the first user message, and latest message preview. |
+| `GET` | `/api/v1/invoice-conversations/:conversationId` | Retrieve the full conversation history and saved source references. |
+| `POST` | `/api/v1/invoice-conversations/:conversationId/messages` | Send a follow-up `{ "message": "..." }` in that conversation. |
 
 The dashboard response includes `totalInvoiceCount`, `processedInvoiceCount`, `successfullySummarizedInvoiceCount`, `invoiceValueTotals`, `monthlyInvoiceValueTrends`, `topVendors`, `missingVendorInvoiceCount`, and `invoicesWithMissingOrInvalidFinancialFieldsCount`. Monetary totals are grouped by explicit currency and are never added across currencies. Trends include only valid invoice dates. The endpoint reads saved data and does not generate summaries.
 
+Multi-invoice conversations return user and assistant message objects; assistant messages include backend-validated `references` with `invoiceId`, `fileName`, and `invoiceNumber`. Intent resolution uses the latest question and bounded conversation history to handle follow-ups to totals, vendor comparisons, and highest-tax results. Exact total, highest contributing invoice/vendor, vendor billing/count/comparison, highest-tax, monthly trend, and vendor invoice lookup questions are calculated from saved fields. Other questions use the Responses API with up to 20 relevant structured summaries and at most two selected extracted-text snippets when a line-item or document-detail question requires them. Financial values with missing/ambiguous currency or malformed amounts are excluded and reported. OpenAI is not asked to calculate totals or rankings.
+
 ## SQLite compatibility
 
-The `invoices` table stores invoice metadata and extracted text, plus nullable `summary_json` and a status constrained to `uploaded`, `processed`, or `failed`. Startup adds `summary_json` to an older invoice table if it is absent and marks existing invoices with a saved summary as `processed`. Chat messages are stored separately in `chat_messages` and reference invoices. The dashboard adds no database columns or tables.
+The `invoices` table stores invoice metadata and extracted text, plus nullable `summary_json` and a status constrained to `uploaded`, `processed`, or `failed`. Startup adds `summary_json` to an older invoice table if it is absent and marks existing invoices with a saved summary as `processed`. Single-invoice messages remain in `chat_messages`. Multi-invoice history uses `invoice_conversations` and `invoice_conversation_messages`; assistant references are stored in nullable `references_json`, and message rows cascade when their conversation is deleted. Startup creates these tables and indexes without changing the existing single-invoice chat schema. There is no user ownership or authentication model yet.
 
 ## Checks
 

@@ -58,6 +58,8 @@ describe("invoice dashboard database initialization", () => {
       status: "uploaded",
     });
     expect(database.pragma("table_info(chat_messages)")).toHaveLength(5);
+    expect(database.pragma("table_info(invoice_conversations)")).toHaveLength(3);
+    expect(database.pragma("table_info(invoice_conversation_messages)")).toHaveLength(6);
   });
 
   it("backfills uploaded invoices with saved summaries to processed", () => {
@@ -85,5 +87,18 @@ describe("invoice dashboard database initialization", () => {
       .toEqual({ status: "processed" });
     expect(database.prepare("SELECT summary_json FROM invoices WHERE id = ?").get("summarized-invoice"))
       .toEqual({ summary_json: summaryJson });
+  });
+
+  it("cascades message deletion when a multi-invoice conversation is removed", () => {
+    database.pragma("foreign_keys = ON");
+    initializeDatabase(database);
+    database.prepare("INSERT INTO invoice_conversations (id) VALUES (?)").run("conversation-id");
+    database.prepare(`
+      INSERT INTO invoice_conversation_messages (id, conversation_id, role, content)
+      VALUES (?, ?, 'user', ?)
+    `).run("message-id", "conversation-id", "Question");
+
+    database.prepare("DELETE FROM invoice_conversations WHERE id = ?").run("conversation-id");
+    expect(database.prepare("SELECT id FROM invoice_conversation_messages").all()).toEqual([]);
   });
 });

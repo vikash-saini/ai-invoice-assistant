@@ -3,6 +3,7 @@ import { InvoiceDetails } from "./components/InvoiceDetails";
 import { InvoiceDashboard } from "./components/InvoiceDashboard";
 import { InvoiceList } from "./components/InvoiceList";
 import { InvoiceUpload } from "./components/InvoiceUpload";
+import { MultiInvoiceChatPage } from "./pages/MultiInvoiceChatPage";
 import { apiService, type ChatMessage, type Invoice, type InvoiceDashboardStats, type InvoiceListItem } from "./services/api.service";
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
   const [chatSending, setChatSending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatHistoryError, setChatHistoryError] = useState<string | null>(null);
+  const [activePage, setActivePage] = useState<"invoices" | "multi-chat">("invoices");
   const detailRequest = useRef(0);
   const uploadLock = useRef(false);
   const chatRequest = useRef(0);
@@ -123,6 +125,27 @@ function App() {
     }
   }
 
+  async function openInvoiceById(invoiceId: string) {
+    setActivePage("invoices");
+    const requestId = ++detailRequest.current;
+    setSelectedId(invoiceId);
+    setSelectedInvoice(null);
+    setDetailLoading(true);
+    setDetailError(null);
+    setSummaryError(null);
+    setChatError(null);
+    setChatMessages([]);
+    void loadChatHistory(invoiceId);
+    try {
+      const invoice = await apiService.getInvoice(invoiceId);
+      if (detailRequest.current === requestId) setSelectedInvoice(invoice);
+    } catch (error) {
+      if (detailRequest.current === requestId) setDetailError(error instanceof Error ? error.message : "Unable to load invoice details.");
+    } finally {
+      if (detailRequest.current === requestId) setDetailLoading(false);
+    }
+  }
+
   async function uploadInvoice(file: File): Promise<boolean> {
     if (uploadLock.current) return false;
     uploadLock.current = true;
@@ -199,18 +222,23 @@ function App() {
   return (
     <div className="min-h-screen bg-[#f5f7fb]">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
               <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M7 3.75h7l4.25 4.5v12H7a2 2 0 0 1-2-2v-12a2 2 0 0 1 2-2Z"/><path strokeLinecap="round" strokeLinejoin="round" d="M14 4v5h4M8.5 13h7m-7 3.5h4"/></svg>
             </div>
             <div><p className="text-sm font-bold tracking-tight text-slate-900">AI Invoice Assistant</p><p className="text-xs text-slate-500">Invoice workspace</p></div>
           </div>
-          <div className="hidden items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 sm:flex"><span className="h-2 w-2 rounded-full bg-emerald-500"/> Workspace ready</div>
+          <nav aria-label="Main navigation" className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+            <button type="button" aria-current={activePage === "invoices" ? "page" : undefined} onClick={() => setActivePage("invoices")} className={`rounded-lg px-3 py-2 text-xs font-semibold sm:px-4 sm:text-sm ${activePage === "invoices" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>Invoices</button>
+            <button type="button" aria-current={activePage === "multi-chat" ? "page" : undefined} onClick={() => setActivePage("multi-chat")} className={`rounded-lg px-3 py-2 text-xs font-semibold sm:px-4 sm:text-sm ${activePage === "multi-chat" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>AI Invoice Chat</button>
+          </nav>
+          <div className="hidden items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 xl:flex"><span className="h-2 w-2 rounded-full bg-emerald-500"/> Workspace ready</div>
         </div>
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-9 lg:px-8">
+        {activePage === "multi-chat" ? <MultiInvoiceChatPage onOpenInvoice={(invoiceId) => void openInvoiceById(invoiceId)} /> : <>
         <div className="mb-7 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div><p className="text-sm font-semibold text-indigo-600">INVOICE MANAGEMENT</p><h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Your invoices, organized.</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">Upload a PDF to extract its contents and get an AI-generated summary.</p></div>
           <div className="flex gap-3">
@@ -235,6 +263,7 @@ function App() {
         <div className="mt-6"><InvoiceList invoices={invoices} loading={listLoading} error={listError} selectedId={selectedId} onSelect={(invoice) => void openInvoice(invoice)} onRetry={() => void loadInvoices()} /></div>
 
         {(selectedId || detailLoading || detailError) && <div className="mt-6"><InvoiceDetails invoice={selectedInvoice} loading={detailLoading} error={detailError} summaryLoading={summaryLoading} summaryError={summaryError} chatMessages={chatMessages} chatLoading={chatLoading} chatSending={chatSending} chatError={chatError} chatHistoryError={chatHistoryError} onGenerateSummary={() => void generateSummary()} onSendChatMessage={sendChatMessage} onRetryChat={() => { if (selectedId) void loadChatHistory(selectedId); }} onRetry={() => { const item = invoices.find((invoice) => invoice.id === selectedId); if (item) void openInvoice(item); }} /></div>}
+        </>}
       </main>
     </div>
   );

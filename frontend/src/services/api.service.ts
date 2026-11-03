@@ -30,6 +30,38 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export interface InvoiceReference {
+  invoiceId: string;
+  fileName: string;
+  invoiceNumber: string | null;
+}
+
+export interface InvoiceConversation {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  title: string | null;
+  latestMessagePreview: string | null;
+}
+
+export interface InvoiceConversationMessage {
+  id: string;
+  conversationId: string;
+  role: "user" | "assistant";
+  content: string;
+  references: InvoiceReference[];
+  createdAt: string;
+}
+
+export interface InvoiceConversationExchange {
+  userMessage: InvoiceConversationMessage;
+  assistantMessage: InvoiceConversationMessage;
+}
+
+export interface InvoiceConversationDetail extends InvoiceConversation {
+  messages: InvoiceConversationMessage[];
+}
+
 export interface CurrencyAmount {
   currency: string;
   amount: string;
@@ -120,6 +152,30 @@ export const apiService = {
     assistantMessage: ChatMessage;
   }> {
     return request(`/invoices/${encodeURIComponent(id)}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+  },
+
+  listInvoiceConversations(): Promise<InvoiceConversation[]> {
+    return request<InvoiceConversation[]>("/invoice-conversations");
+  },
+
+  getInvoiceConversation(id: string): Promise<InvoiceConversationDetail> {
+    return request<InvoiceConversationDetail>(`/invoice-conversations/${encodeURIComponent(id)}`);
+  },
+
+  createInvoiceConversation(message: string): Promise<{ conversation: InvoiceConversation } & InvoiceConversationExchange> {
+    return request<{ conversation: InvoiceConversation } & InvoiceConversationExchange>("/invoice-conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+  },
+
+  sendInvoiceConversationMessage(id: string, message: string): Promise<{ conversationId: string } & InvoiceConversationExchange> {
+    return request<{ conversationId: string } & InvoiceConversationExchange>(`/invoice-conversations/${encodeURIComponent(id)}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message }),

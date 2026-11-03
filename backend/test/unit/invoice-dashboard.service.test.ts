@@ -15,8 +15,10 @@ const baseSummary = {
   summary: "Acme Supplies invoiced 100.00 USD.",
 };
 
+let nextId = 0;
 function row(summary: Record<string, unknown> | null, status: InvoiceDashboardRow["status"] = "processed"): InvoiceDashboardRow {
-  return { status, summary_json: summary ? JSON.stringify(summary) : null };
+  nextId += 1;
+  return { id: `invoice-${nextId}`, fileName: `invoice-${nextId}.pdf`, status, summary };
 }
 
 function dashboard(rows: InvoiceDashboardRow[]) {

@@ -29,8 +29,10 @@ interface InvoiceRow {
 }
 
 export interface InvoiceDashboardRow {
+    id: string;
+    fileName: string;
     status: InvoiceRecord["status"];
-    summary_json: string | null;
+    summary: Record<string, unknown> | null;
 }
 
 function mapInvoice(row: InvoiceRow): InvoiceRecord {
@@ -90,9 +92,21 @@ const saveInvoiceSummary = db.prepare(`
 `);
 
 const findInvoicesForDashboard = db.prepare(`
-    SELECT status, summary_json
+    SELECT id, file_name, status, summary_json
     FROM invoices
 `);
+
+function parseStoredSummary(value: string | null): Record<string, unknown> | null {
+    if (!value) return null;
+    try {
+        const parsed: unknown = JSON.parse(value);
+        return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+            ? parsed as Record<string, unknown>
+            : null;
+    } catch {
+        return null;
+    }
+}
 
 export const invoiceRepository = {
     create(input: CreateInvoiceInput): InvoiceRecord {
@@ -124,6 +138,26 @@ export const invoiceRepository = {
     },
 
     findDashboardRows(): InvoiceDashboardRow[] {
-        return findInvoicesForDashboard.all() as InvoiceDashboardRow[];
+        return (findInvoicesForDashboard.all() as Array<{
+            id: string;
+            file_name: string;
+            status: InvoiceRecord["status"];
+            summary_json: string | null;
+        }>).map((row) => ({
+            id: row.id,
+            fileName: row.file_name,
+            status: row.status,
+            summary: parseStoredSummary(row.summary_json),
+        }));
+    },
+
+    findExtractedTextsByIds(ids: string[]): Array<{ id: string; extractedText: string }> {
+        if (ids.length === 0) return [];
+        const placeholders = ids.map(() => "?").join(", ");
+        return db.prepare(`
+            SELECT id, extracted_text AS extractedText
+            FROM invoices
+            WHERE id IN (${placeholders})
+        `).all(...ids) as Array<{ id: string; extractedText: string }>;
     },
 };
