@@ -18,7 +18,7 @@ function Healthpage () {
             try {
                 const res = await apiService.getHealth();
                 setHealth(res);
-            } catch (error) {
+            } catch {
                 setError("Backend Is Unavailable");
             }
         }

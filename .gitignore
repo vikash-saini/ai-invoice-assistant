@@ -2,6 +2,10 @@ node_modules
 dist
 .env
 uploads
+backend/data/
+*.sqlite
+*.sqlite3
+*.db
 coverage
 .vscode
 .DS_Store
